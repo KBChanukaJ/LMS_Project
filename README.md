@@ -33,7 +33,7 @@ Follow these steps to get the development environment running:
 
 1.  **Clone the Repository**
     ```bash
-    git clone <your-repository-url>
+    git clone https://github.com/KBChanukaJ/LMS_Project.git
     cd lms-backend
     ```
 
