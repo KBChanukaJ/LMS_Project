@@ -1,0 +1,227 @@
+-- Learning Management System Database Schema
+-- Version: 1.0
+-- Date: August 19, 2025
+
+-- Create database
+CREATE DATABASE IF NOT EXISTS lms_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE lms_db;
+
+-- Users Table
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    role ENUM('ADMIN', 'INSTRUCTOR', 'STUDENT') NOT NULL,
+    status ENUM('ACTIVE', 'INACTIVE') DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_email (email),
+    INDEX idx_role (role),
+    INDEX idx_status (status)
+);
+
+-- Courses Table
+CREATE TABLE courses (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    instructor_id BIGINT NOT NULL,
+    status ENUM('DRAFT', 'PUBLISHED', 'ARCHIVED') DEFAULT 'DRAFT',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (instructor_id) REFERENCES users(id),
+    INDEX idx_instructor (instructor_id),
+    INDEX idx_status (status)
+);
+
+-- Enrollments Table
+CREATE TABLE enrollments (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    course_id BIGINT NOT NULL,
+    student_id BIGINT NOT NULL,
+    enrollment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('ACTIVE', 'COMPLETED', 'DROPPED') DEFAULT 'ACTIVE',
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_enrollment (course_id, student_id),
+    INDEX idx_course (course_id),
+    INDEX idx_student (student_id),
+    INDEX idx_status (status)
+);
+
+-- Modules Table
+CREATE TABLE modules (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    course_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    order_index INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    INDEX idx_course (course_id),
+    INDEX idx_order (order_index)
+);
+
+-- Lessons Table
+CREATE TABLE lessons (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    module_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content_type ENUM('VIDEO', 'DOCUMENT', 'TEXT') NOT NULL,
+    content_url VARCHAR(500),
+    content_text TEXT,
+    duration_minutes INT,
+    order_index INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE,
+    INDEX idx_module (module_id),
+    INDEX idx_order (order_index),
+    INDEX idx_content_type (content_type)
+);
+
+-- Assessments Table
+CREATE TABLE assessments (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    course_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    type ENUM('QUIZ', 'ASSIGNMENT') NOT NULL,
+    total_points INT DEFAULT 100,
+    due_date DATETIME,
+    max_attempts INT DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    INDEX idx_course (course_id),
+    INDEX idx_type (type)
+);
+
+-- Questions Table
+CREATE TABLE questions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    assessment_id BIGINT NOT NULL,
+    question_text TEXT NOT NULL,
+    question_type ENUM('MULTIPLE_CHOICE', 'TRUE_FALSE', 'SHORT_ANSWER') NOT NULL,
+    points INT DEFAULT 1,
+    correct_answer TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (assessment_id) REFERENCES assessments(id) ON DELETE CASCADE,
+    INDEX idx_assessment (assessment_id),
+    INDEX idx_question_type (question_type)
+);
+
+-- Question Options Table
+CREATE TABLE question_options (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    question_id BIGINT NOT NULL,
+    option_text VARCHAR(255) NOT NULL,
+    is_correct BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
+    INDEX idx_question (question_id),
+    INDEX idx_is_correct (is_correct)
+);
+
+-- Assessment Attempts Table
+CREATE TABLE assessment_attempts (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    assessment_id BIGINT NOT NULL,
+    student_id BIGINT NOT NULL,
+    attempt_number INT NOT NULL,
+    answers JSON,
+    score DECIMAL(5,2),
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (assessment_id) REFERENCES assessments(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_assessment (assessment_id),
+    INDEX idx_student (student_id),
+    INDEX idx_submitted (submitted_at)
+);
+
+-- Progress Tracking Table
+CREATE TABLE lesson_progress (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    lesson_id BIGINT NOT NULL,
+    student_id BIGINT NOT NULL,
+    completed BOOLEAN DEFAULT FALSE,
+    completed_at TIMESTAMP NULL,
+    time_spent_minutes INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_progress (lesson_id, student_id),
+    INDEX idx_lesson (lesson_id),
+    INDEX idx_student (student_id),
+    INDEX idx_completed (completed)
+);
+
+-- Certificates Table
+CREATE TABLE certificates (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    course_id BIGINT NOT NULL,
+    student_id BIGINT NOT NULL,
+    issued_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    certificate_code VARCHAR(100) UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_course (course_id),
+    INDEX idx_student (student_id),
+    INDEX idx_certificate_code (certificate_code)
+);
+
+-- Messages Table (for basic messaging system)
+CREATE TABLE messages (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    sender_id BIGINT NOT NULL,
+    receiver_id BIGINT NOT NULL,
+    subject VARCHAR(255),
+    message_text TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_sender (sender_id),
+    INDEX idx_receiver (receiver_id),
+    INDEX idx_created (created_at)
+);
+
+-- Announcements Table
+CREATE TABLE announcements (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    course_id BIGINT NOT NULL,
+    author_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_course (course_id),
+    INDEX idx_author (author_id)
+);
+
+-- Password Reset Tokens Table
+CREATE TABLE password_reset_tokens (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_token (token),
+    INDEX idx_user (user_id)
+);
+
+-- Insert default admin user
+INSERT INTO users (email, password, first_name, last_name, role)
+VALUES ('admin@lms.com', '$2a$10$rOzZbYr3kGkK5V5p5p5p5u5p5p5p5p5p5p5p5p5p5p5p5p5p5p5p5', 'System', 'Administrator', 'ADMIN');
+
+-- Create database user with appropriate privileges
+CREATE USER IF NOT EXISTS 'lms_user'@'localhost' IDENTIFIED BY 'secure_password';
+GRANT SELECT, INSERT, UPDATE, DELETE ON lms_db.* TO 'lms_user'@'localhost';
+FLUSH PRIVILEGES;
